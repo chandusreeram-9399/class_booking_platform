@@ -1,0 +1,672 @@
+openapi: 3.0.0
+info:
+  title: Global Class Offering Booking System API
+  description: |
+    A production-ready backend service for managing live online classes with 
+    timezone support, concurrent booking handling, and conflict detection.
+  version: 1.0.0
+  contact:
+    name: Support
+    url: https://example.com/support
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development server
+  - url: https://api.example.com/api
+    description: Production server
+
+tags:
+  - name: Users
+    description: User management (teachers and parents)
+  - name: Courses
+    description: Course management
+  - name: Offerings
+    description: Course offerings/sections
+  - name: Sessions
+    description: Individual session management
+  - name: Bookings
+    description: Booking management
+
+paths:
+  /users:
+    post:
+      tags:
+        - Users
+      summary: Create a new user
+      description: Create a new teacher or parent user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Users
+      summary: Get user details
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /courses:
+    post:
+      tags:
+        - Courses
+      summary: Create a new course
+      description: Create a course (teachers only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCourseRequest'
+      responses:
+        '201':
+          description: Course created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseResponse'
+        '403':
+          description: Only teachers can create courses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Courses
+      summary: List courses
+      parameters:
+        - name: teacherId
+          in: query
+          schema:
+            type: integer
+          description: Filter by teacher ID
+      responses:
+        '200':
+          description: List of courses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CourseResponse'
+
+  /offerings:
+    post:
+      tags:
+        - Offerings
+      summary: Create a new offering
+      description: Create an offering/section for a course (teachers only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOfferingRequest'
+      responses:
+        '201':
+          description: Offering created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferingResponse'
+        '403':
+          description: Only teachers can create offerings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Offerings
+      summary: List offerings
+      parameters:
+        - name: teacherId
+          in: query
+          schema:
+            type: integer
+          description: Filter by teacher ID
+        - name: id
+          in: query
+          schema:
+            type: integer
+          description: Get specific offering
+        - name: timezone
+          in: query
+          schema:
+            type: string
+          description: Parent's timezone for display conversion
+      responses:
+        '200':
+          description: List of offerings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OfferingResponse'
+
+  /sessions:
+    post:
+      tags:
+        - Sessions
+      summary: Add session to offering
+      description: Add a session/meeting to an offering (teachers only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddSessionRequest'
+      responses:
+        '201':
+          description: Session added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not authorized to add sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /bookings:
+    post:
+      tags:
+        - Bookings
+      summary: Book an offering
+      description: |
+        Book an offering for a parent. Checks for time conflicts and capacity.
+        Handles concurrent booking requests with optimistic locking.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookOfferingRequest'
+      responses:
+        '201':
+          description: Booking confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '409':
+          description: Booking conflict (time overlap or duplicate)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflictErrorResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Bookings
+      summary: Get bookings
+      parameters:
+        - name: parentId
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: Parent user ID
+        - name: checkConflicts
+          in: query
+          schema:
+            type: boolean
+          description: Check for conflicts with offering
+        - name: offeringId
+          in: query
+          schema:
+            type: integer
+          description: Offering ID (required if checkConflicts=true)
+      responses:
+        '200':
+          description: Bookings or conflict check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    oneOf:
+                      - type: array
+                        items:
+                          $ref: '#/components/schemas/BookingResponse'
+                      - $ref: '#/components/schemas/ConflictCheckResponse'
+
+    delete:
+      tags:
+        - Bookings
+      summary: Cancel booking
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: Booking ID
+        - name: parentId
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: Parent user ID
+      responses:
+        '200':
+          description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+        '404':
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    CreateUserRequest:
+      type: object
+      required:
+        - email
+        - name
+        - role
+        - timezone
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum:
+            - teacher
+            - parent
+        timezone:
+          type: string
+          example: America/New_York
+
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            email:
+              type: string
+            name:
+              type: string
+            role:
+              type: string
+            timezone:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+
+    CreateCourseRequest:
+      type: object
+      required:
+        - teacherId
+        - name
+      properties:
+        teacherId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+
+    CourseResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            teacherId:
+              type: integer
+            name:
+              type: string
+            description:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+
+    CreateOfferingRequest:
+      type: object
+      required:
+        - teacherId
+        - courseId
+        - name
+        - teacherTimezone
+        - price
+      properties:
+        teacherId:
+          type: integer
+        courseId:
+          type: integer
+        name:
+          type: string
+        teacherTimezone:
+          type: string
+          example: America/New_York
+        maxCapacity:
+          type: integer
+          default: 30
+        price:
+          type: integer
+          description: Price in cents
+
+    OfferingResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            courseId:
+              type: integer
+            courseName:
+              type: string
+            offeringName:
+              type: string
+            teacher:
+              type: object
+              properties:
+                id:
+                  type: integer
+                name:
+                  type: string
+                email:
+                  type: string
+                timezone:
+                  type: string
+            teacherTimezone:
+              type: string
+            maxCapacity:
+              type: integer
+            currentBookings:
+              type: integer
+            spotsAvailable:
+              type: integer
+            price:
+              type: integer
+            sessions:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  startTimeUtc:
+                    type: string
+                    format: date-time
+                  endTimeUtc:
+                    type: string
+                    format: date-time
+
+    AddSessionRequest:
+      type: object
+      required:
+        - teacherId
+        - offeringId
+        - startTime
+        - endTime
+        - timezone
+      properties:
+        teacherId:
+          type: integer
+        offeringId:
+          type: integer
+        startTime:
+          type: string
+          format: date-time
+          description: Start time in teacher's timezone
+        endTime:
+          type: string
+          format: date-time
+          description: End time in teacher's timezone
+        timezone:
+          type: string
+          example: America/New_York
+
+    SessionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            offeringId:
+              type: integer
+            startTimeUtc:
+              type: string
+              format: date-time
+            endTimeUtc:
+              type: string
+              format: date-time
+            createdAt:
+              type: string
+              format: date-time
+
+    BookOfferingRequest:
+      type: object
+      required:
+        - parentId
+        - offeringId
+      properties:
+        parentId:
+          type: integer
+        offeringId:
+          type: integer
+
+    BookingResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            offeringId:
+              type: integer
+            offering:
+              type: object
+              properties:
+                id:
+                  type: integer
+                name:
+                  type: string
+                teacher:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    timezone:
+                      type: string
+                sessions:
+                  type: array
+                  items:
+                    type: object
+            status:
+              type: string
+              enum:
+                - confirmed
+                - pending
+                - cancelled
+            bookedAt:
+              type: string
+              format: date-time
+
+    ConflictErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: BOOKING_CONFLICT
+            message:
+              type: string
+            details:
+              type: object
+              properties:
+                conflicts:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      conflictingOfferingId:
+                        type: integer
+                      conflictingOfferingName:
+                        type: string
+                      sessions:
+                        type: array
+
+    ConflictCheckResponse:
+      type: object
+      properties:
+        hasConflicts:
+          type: boolean
+        conflicts:
+          type: array
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorCodes:
+      type: string
+      enum:
+        - INVALID_INPUT
+        - INVALID_TIMEZONE
+        - INVALID_DATES
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - TEACHER_ONLY
+        - PARENT_ONLY
+        - NOT_FOUND
+        - USER_NOT_FOUND
+        - COURSE_NOT_FOUND
+        - OFFERING_NOT_FOUND
+        - SESSION_NOT_FOUND
+        - BOOKING_NOT_FOUND
+        - BOOKING_CONFLICT
+        - OFFERING_FULL
+        - DUPLICATE_BOOKING
+        - TIME_OVERLAP
+        - INTERNAL_ERROR
+        - DATABASE_ERROR
