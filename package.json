@@ -68,7 +68,11 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+<<<<<<< Updated upstream
     "drizzle-kit": "^0.21.0",
+=======
+    "drizzle-kit": "^0.31.10",
+>>>>>>> Stashed changes
     "postcss": "^8.5",
     "tailwindcss": "^4.2.0",
     "tw-animate-css": "1.3.3",
