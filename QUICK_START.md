@@ -6,20 +6,23 @@
 # Install dependencies
 pnpm install
 
-# Create .env.local
-cat > .env.local << 'EOF'
-DATABASE_URL=postgresql://user:password@host/database?sslmode=require
-EOF
-```
+# Copy environment file
+cp .env.example .env.local
 
-Replace with your Neon or PostgreSQL connection string.
+# Edit .env.local with your database URL
+# For Neon: postgresql://[username]:[password]@[project-id].neon.tech/[database-name]?sslmode=require
+nano .env.local  # or your editor
+```
 
 ## 2. Database Setup (1 min)
 
 ```bash
-# Run migrations
+# Generate and run migrations
+npx drizzle-kit generate
 npx drizzle-kit migrate
 ```
+
+The `drizzle.config.json` file is already configured to use your DATABASE_URL.
 
 ## 3. Start Server (1 min)
 

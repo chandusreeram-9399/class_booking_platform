@@ -55,13 +55,17 @@ pnpm install
 
 ### 5. Run Database Migrations
 
+The `drizzle.config.json` is pre-configured. Just run:
+
 ```bash
-# Generate schema
+# Generate schema from drizzle.config.json
 npx drizzle-kit generate
 
 # Run migrations
 npx drizzle-kit migrate
 ```
+
+If you get "drizzle.config.json file does not exist", ensure you copied it from the project root.
 
 ### 6. Start Development Server
 
